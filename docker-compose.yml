@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:7.0
+    # A single-node replica set: required for multi-document transactions and change streams.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the replica set on first start, then reports healthy once it is up.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'localhost:27017' }] }).ok }"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+
+  app:
+    build: .
+    environment:
+      MONGO_URI: mongodb://mongo:27017/newtonite?directConnection=true
+      JWT_SECRET: change-me-in-real-deployments
+      PORT: "4000"
+      DEMO_LOGIN: "true"
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
